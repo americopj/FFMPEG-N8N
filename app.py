@@ -1,11 +1,10 @@
 from flask import Flask, request, send_file
 import os
 import subprocess
+import uuid
 from werkzeug.utils import secure_filename
 
-# Inicializa o app Flask
 app = Flask(__name__)
-
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -16,36 +15,49 @@ def convert_audio():
 
     file = request.files["file"]
     
-    # Verifique o nome do arquivo e o tipo
-    if file.filename == '':
-        return {"error": "No selected file"}, 400
+    # Log detalhes do arquivo recebido
+    print(f"Arquivo recebido - Nome: {file.filename}, Tipo: {file.content_type}, Tamanho: {len(file.read())} bytes")
+    file.seek(0)  # Volta ao início do arquivo após ler o conteúdo
 
-    # Verifique se o arquivo tem conteúdo
-    if file:
-        print(f"Arquivo recebido: {file.filename}, tipo: {file.content_type}")
-
-    format = request.form.get("format", "wav")  # Padrão: WAV
-
+    format = request.form.get("format", "wav")
     if format not in ["wav", "aac", "mpga"]:
         return {"error": "Invalid format"}, 400
 
-    filename = secure_filename(file.filename)
+    # Gera um nome seguro ou usa um UUID se o nome estiver vazio
+    if file.filename.strip() == '':
+        filename = f"audio_{uuid.uuid4().hex}"
+        print(f"Nome do arquivo vazio. Usando nome gerado: {filename}")
+    else:
+        filename = secure_filename(file.filename)
+        print(f"Nome do arquivo após secure_filename: {filename}")
+
     input_path = os.path.join(UPLOAD_FOLDER, filename)
-    output_path = os.path.join(UPLOAD_FOLDER, f"{os.path.splitext(filename)[0]}.{format}")
+    output_filename = f"{os.path.splitext(filename)[0]}.{format}"
+    output_path = os.path.join(UPLOAD_FOLDER, output_filename)
 
-    file.save(input_path)
+    try:
+        file.save(input_path)
+        print(f"Arquivo salvo em: {input_path}")
+    except Exception as e:
+        return {"error": f"Erro ao salvar o arquivo: {str(e)}"}, 500
 
-    # Comando FFmpeg para conversão
-    ffmpeg_command = [
-        "ffmpeg", "-i", input_path, "-y", output_path
-    ]
-
-    subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Executa o FFmpeg
+    try:
+        subprocess.run(
+            ["ffmpeg", "-i", input_path, "-y", output_path],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        print(f"Conversão concluída. Saída salva em: {output_path}")
+    except subprocess.CalledProcessError as e:
+        print(f"Erro na conversão: {e.stderr.decode()}")
+        return {"error": "Falha na conversão"}, 500
 
     if not os.path.exists(output_path):
-        return {"error": "Conversion failed"}, 500
+        return {"error": "Arquivo de saída não gerado"}, 500
 
-    return send_file(output_path, as_attachment=True)
+    return send_file(output_path, as_attachment=True, download_name=output_filename)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
