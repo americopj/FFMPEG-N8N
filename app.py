@@ -15,7 +15,7 @@ def convert_audio():
 
     format = request.form.get("format", "wav")  # Padrão: WAV
 
-    if format not in ["wav", "aac", "mpga", "mpeg"]:
+    if format not in ["wav", "aac", "mpga"]:
         return {"error": "Invalid format"}, 400
 
     filename = secure_filename(file.filename)
