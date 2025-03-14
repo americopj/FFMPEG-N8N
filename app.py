@@ -26,10 +26,16 @@ def convert_audio():
 
     file.save(input_path)
 
-    # Comando FFmpeg para conversão
-    ffmpeg_command = [
-        "ffmpeg", "-i", input_path, "-y", output_path
-    ]
+    # Comando FFmpeg para conversão, verificando se o arquivo é mpga
+    ffmpeg_command = ["ffmpeg", "-i", input_path, "-y"]
+
+    # Caso o formato seja 'mpga', ajustando a saída para MP3
+    if format == "mpga":
+        ffmpeg_command.append("-acodec")
+        ffmpeg_command.append("libmp3lame")
+        output_path = os.path.join(UPLOAD_FOLDER, f"{os.path.splitext(filename)[0]}.mp3")
+    else:
+        ffmpeg_command.append(output_path)
 
     subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
