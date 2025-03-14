@@ -1,23 +1,21 @@
-from flask import Flask, request, send_file
-import os
-import subprocess
-from werkzeug.utils import secure_filename
-
-app = Flask(__name__)
-
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 @app.route("/convert", methods=["POST"])
 def convert_audio():
     if "file" not in request.files:
         return {"error": "No file provided"}, 400
 
     file = request.files["file"]
+    
+    # Verifique o nome do arquivo e o tipo
+    if file.filename == '':
+        return {"error": "No selected file"}, 400
+
+    # Verifique se o arquivo tem conteúdo
+    if file:
+        print(f"Arquivo recebido: {file.filename}, tipo: {file.content_type}")
+
     format = request.form.get("format", "wav")  # Padrão: WAV
 
-    # Adicionando "mpga" à lista de formatos válidos
-    if format not in ["wav", "aac", "mpga"]:
+    if format not in ["wav", "aac", "mpga", "mpeg"]:
         return {"error": "Invalid format"}, 400
 
     filename = secure_filename(file.filename)
@@ -26,16 +24,10 @@ def convert_audio():
 
     file.save(input_path)
 
-    # Comando FFmpeg para conversão, verificando se o arquivo é mpga
-    ffmpeg_command = ["ffmpeg", "-i", input_path, "-y"]
-
-    # Caso o formato seja 'mpga', ajustando a saída para MP3
-    if format == "mpga":
-        ffmpeg_command.append("-acodec")
-        ffmpeg_command.append("libmp3lame")
-        output_path = os.path.join(UPLOAD_FOLDER, f"{os.path.splitext(filename)[0]}.mp3")
-    else:
-        ffmpeg_command.append(output_path)
+    # Comando FFmpeg para conversão
+    ffmpeg_command = [
+        "ffmpeg", "-i", input_path, "-y", output_path
+    ]
 
     subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -43,6 +35,3 @@ def convert_audio():
         return {"error": "Conversion failed"}, 500
 
     return send_file(output_path, as_attachment=True)
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
