@@ -1,3 +1,14 @@
+from flask import Flask, request, send_file
+import os
+import subprocess
+from werkzeug.utils import secure_filename
+
+# Inicializa o app Flask
+app = Flask(__name__)
+
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 @app.route("/convert", methods=["POST"])
 def convert_audio():
     if "file" not in request.files:
@@ -20,18 +31,4 @@ def convert_audio():
 
     filename = secure_filename(file.filename)
     input_path = os.path.join(UPLOAD_FOLDER, filename)
-    output_path = os.path.join(UPLOAD_FOLDER, f"{os.path.splitext(filename)[0]}.{format}")
-
-    file.save(input_path)
-
-    # Comando FFmpeg para conversão
-    ffmpeg_command = [
-        "ffmpeg", "-i", input_path, "-y", output_path
-    ]
-
-    subprocess.run(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    if not os.path.exists(output_path):
-        return {"error": "Conversion failed"}, 500
-
-    return send_file(output_path, as_attachment=True)
+    output_path = os.path.join(UPLOAD_FOLDER, f"{os.pat
